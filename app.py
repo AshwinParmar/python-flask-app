@@ -1,10 +1,10 @@
-from flask import Flask, render_template, json, request,redirect,session
+from flask import Flask, render_template, json, request,redirect,session,jsonify
 from flask.ext.mysql import MySQL
 from werkzeug import generate_password_hash, check_password_hash
 
 mysql = MySQL()
 app = Flask(__name__)
-app.secret_key = 'Th!$_mY_$3cR3T'
+app.secret_key = 'why would I tell you my secret key?'
 
 # MySQL configurations
 app.config['MYSQL_DATABASE_USER'] = 'root'
@@ -22,6 +22,10 @@ def main():
 def showSignUp():
     return render_template('signup.html')
 
+@app.route('/showAddWish')
+def showAddWish():
+    return render_template('addWish.html')
+
 @app.route('/showSignin')
 def showSignin():
     if session.get('user'):
@@ -36,14 +40,64 @@ def userHome():
     else:
         return render_template('error.html',error = 'Unauthorized Access')
 
-@app.route('/user-registered-success')
-def userRegisterSuccess():
-    return render_template('userRegisterSuccess.html')
 
 @app.route('/logout')
 def logout():
     session.pop('user',None)
     return redirect('/')
+
+@app.route('/getWish')
+def getWish():
+    try:
+        if session.get('user'):
+            _user = session.get('user')
+
+            con = mysql.connect()
+            cursor = con.cursor()
+            cursor.callproc('sp_GetWishByUser',(_user,))
+            wishes = cursor.fetchall()
+
+            wishes_dict = []
+            for wish in wishes:
+                wish_dict = {
+                        'Id': wish[0],
+                        'Title': wish[1],
+                        'Description': wish[2],
+                        'Date': wish[4]}
+                wishes_dict.append(wish_dict)
+
+            return json.dumps(wishes_dict)
+        else:
+            return render_template('error.html', error = 'Unauthorized Access')
+    except Exception as e:
+        return render_template('error.html', error = str(e))
+
+@app.route('/addWish',methods=['POST'])
+def addWish():
+    try:
+        if session.get('user'):
+            _title = request.form['inputTitle']
+            _description = request.form['inputDescription']
+            _user = session.get('user')
+
+            conn = mysql.connect()
+            cursor = conn.cursor()
+            cursor.callproc('sp_addWish',(_title,_description,_user))
+            data = cursor.fetchall()
+
+            if len(data) is 0:
+                conn.commit()
+                return redirect('/userHome')
+            else:
+                return render_template('error.html',error = 'An error occurred!')
+
+        else:
+            return render_template('error.html',error = 'Unauthorized Access')
+    except Exception as e:
+        return render_template('error.html',error = str(e))
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.route('/validateLogin',methods=['POST'])
 def validateLogin():
@@ -51,6 +105,7 @@ def validateLogin():
         _username = request.form['inputEmail']
         _password = request.form['inputPassword']
         
+
         
         # connect to mysql
 
@@ -59,11 +114,11 @@ def validateLogin():
         cursor.callproc('sp_validateLogin',(_username,))
         data = cursor.fetchall()
 
+        
+
 
         if len(data) > 0:
-	    _hashed_password = generate_password_hash(_password)
             if check_password_hash(str(data[0][3]),_password):
-	    #if str(data[0][3]) == _hashed_password:
                 session['user'] = data[0][0]
                 return redirect('/userHome')
             else:
@@ -99,14 +154,11 @@ def signUp():
 
             if len(data) is 0:
                 conn.commit()
-		return render_template('user-registered-success.html', message = 'User created successfully !')
-                #return json.dumps({'message':'User created successfully !'})
+                return json.dumps({'message':'User created successfully !'})
             else:
-		return render_template('error.html', error = 'Error: ' + str(data[0]))
-                #return json.dumps({'error':str(data[0])})
+                return json.dumps({'error':str(data[0])})
         else:
-	    return render_template('error.html', error = 'Error: <span>Enter the required fields.</span>')
-            #return json.dumps({'html':'<span>Enter the required fields</span>'})
+            return json.dumps({'html':'<span>Enter the required fields</span>'})
 
     except Exception as e:
         return json.dumps({'error':str(e)})

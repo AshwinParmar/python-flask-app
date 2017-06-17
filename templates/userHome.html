@@ -9,7 +9,7 @@
  
     <link href="http://getbootstrap.com/examples/jumbotron-narrow/jumbotron-narrow.css" rel="stylesheet">
     <link href="../static/css/signup.css" rel="stylesheet">
- 
+ 		<script src="../static/js/jquery.js"></script>
  
 </head>
  
@@ -19,6 +19,7 @@
         <div class="header">
             <nav>
                 <ul class="nav nav-pills pull-right">
+		    <li role="presentation"><a href="/showAddWish">Add Wish</a></li>
                     <li role="presentation" class="active"><a href="/logout">Logout</a>
                     </li>
                 </ul>
@@ -28,7 +29,11 @@
  
         <div class="jumbotron">
             <h1>Welcome Home !!</h1>
- 
+
+
+
+
+
         </div>
  
  
@@ -37,6 +42,41 @@
         </footer>
  
     </div>
+
+<script>
+	$(function(){
+		$.ajax({
+			url : '/getWish',
+			type : 'GET',
+			success: function(res){
+				var div = $('<div>')
+    .attr('class', 'list-group')
+    .append($('<a>')
+        .attr('class', 'list-group-item active')
+        .append($('<h4>')
+            .attr('class', 'list-group-item-heading'),
+            $('<p>')
+            .attr('class', 'list-group-item-text')));
+							    
+				
+				
+				var wishObj = JSON.parse(res);
+				var wish = '';
+				
+				$.each(wishObj,function(index, value){
+					wish = $(div).clone();
+					$(wish).find('h4').text(value.Title);
+					$(wish).find('p').text(value.Description);
+					$('.jumbotron').append(wish);
+				});
+			},
+			error: function(error){
+				console.log(error);
+			}
+		});
+	});
+    </script>
+
 </body>
  
 </html>
